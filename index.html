@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Batter Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+/* ── RESET ── */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'DM Mono', monospace;
+  display: flex; flex-direction: column;
+  height: 100dvh; max-width: 480px; margin: 0 auto;
+  background: #1a1208; color: #f0e8d8;
+}
+
+/* ── TAB SYSTEM ── */
+.tab-content { flex: 1; overflow: hidden; position: relative; }
+.tab-panel {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none;
+  transform: translateX(20px);
+  transition: opacity 0.2s ease, transform 0.22s ease;
+}
+.tab-panel.active  { opacity: 1; pointer-events: all; transform: translateX(0); }
+.tab-panel.exit-left { opacity: 0; transform: translateX(-20px); pointer-events: none; }
+
+.tab-bar {
+  background: #0d0d0d; border-top: 1px solid #2a2a2a;
+  display: flex; flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tab-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 8px 4px 6px; cursor: pointer;
+  border: none; background: none; gap: 3px;
+  position: relative; transition: all 0.15s;
+}
+.tab-icon  { font-size: 1.2rem; line-height: 1; transition: transform 0.15s; }
+.tab-label { font-family: 'DM Mono', monospace; font-size: 0.42rem; letter-spacing: 0.08em; text-transform: uppercase; color: #4a4a4a; text-align: center; line-height: 1.2; transition: color 0.15s; }
+.tab-item:nth-child(1) { --tab-accent: #d4631f; }
+.tab-item:nth-child(2) { --tab-accent: #2a8fc4; }
+.tab-item:nth-child(3) { --tab-accent: #9b2335; }
+.tab-item:nth-child(4) { --tab-accent: #5a8a3a; }
+.tab-item:nth-child(5) { --tab-accent: #b8860b; }
+.tab-item:nth-child(6) { --tab-accent: #7a5c9e; }
+.tab-item.active .tab-label { color: var(--tab-accent); }
+.tab-item.active .tab-icon  { transform: translateY(-1px); }
+.tab-indicator { position: absolute; top: 0; left: 20%; right: 20%; height: 2px; border-radius: 0 0 2px 2px; background: var(--tab-accent); opacity: 0; transition: opacity 0.15s; }
+.tab-item.active .tab-indicator { opacity: 1; }
+
+/* ── SHARED ── */
+.topbar { border-bottom: 1px solid var(--border); padding: 11px 14px 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface); }
+.topbar h1 { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 900; line-height: 1; }
+.topbar h1 em { color: var(--accent); font-style: normal; }
+.topbar .sub { font-size: 0.44rem; color: var(--muted); letter-spacing: 0.13em; text-transform: uppercase; margin-top: 3px; }
+.topbar-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+
+.water-badge { background: var(--accent); color: white; font-size: 1.1rem; font-weight: 500; padding: 5px 13px; border-radius: 5px; line-height: 1; text-align: center; }
+.water-badge sub { font-size: 0.44rem; opacity: 0.8; margin-left: 1px; vertical-align: baseline; }
+
+.edit-btn { background: var(--card); border: 1.5px solid var(--border); border-radius: 5px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.58rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 5px 9px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.edit-btn:active { border-color: #d4a843; color: #d4a843; transform: scale(0.95); }
+
+.selector-section { background: var(--surface); border-bottom: 1px solid var(--border); padding: 9px 12px; flex-shrink: 0; }
+.sec-mini { font-size: 0.44rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.btn-row { display: flex; gap: 5px; margin-bottom: 7px; }
+.vol-btn { flex: 1; background: var(--card); border: 1.5px solid var(--border); border-radius: 7px; padding: 8px 2px 6px; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 0.9rem; font-weight: 500; color: var(--muted); text-align: center; transition: all 0.12s; line-height: 1; }
+.vol-btn .u { display: block; font-size: 0.4rem; margin-top: 2px; opacity: 0.6; }
+.vol-btn:active { transform: scale(0.92); }
+.vol-btn.active { color: white; background: var(--accent); border-color: var(--accent); }
+
+.custom-row { display: flex; align-items: center; gap: 8px; }
+.custom-label { font-size: 0.46rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+.custom-input { flex: 1; background: var(--card); border: 1.5px solid var(--border); border-radius: 7px; padding: 6px 9px; font-family: 'DM Mono', monospace; font-size: 0.86rem; color: var(--ink); outline: none; -webkit-appearance: none; transition: border-color 0.15s; }
+.custom-input:focus { border-color: var(--accent); }
+.custom-input::placeholder { color: var(--muted); }
+.custom-unit { font-size: 0.56rem; color: var(--muted); white-space: nowrap; }
+
+.ingredients { flex: 1; overflow-y: auto; padding: 5px 13px 8px; -webkit-overflow-scrolling: touch; }
+.ing-header { font-size: 0.44rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); padding: 4px 0 7px; display: flex; justify-content: space-between; align-items: center; }
+.ing-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); gap: 9px; }
+.ing-row:last-child { border-bottom: none; }
+.ing-row.flash { animation: flash 0.32s ease; }
+.ing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.water-ing .ing-dot { background: var(--accent); }
+.ing-name { flex: 1; font-size: 0.84rem; font-weight: 500; color: var(--ink); }
+.ing-amount { font-size: 1rem; font-weight: 500; color: #d4a843; min-width: 58px; text-align: right; flex-shrink: 0; transition: color 0.22s; }
+.ing-amount.changed { color: var(--accent); }
+.ing-amount.zero { color: var(--muted); }
+.ing-unit { font-size: 0.5rem; color: var(--muted); width: 18px; flex-shrink: 0; }
+
+.panel-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 5px 13px; font-size: 0.42rem; color: var(--muted); letter-spacing: 0.09em; text-align: center; flex-shrink: 0; text-transform: uppercase; }
+
+/* ── EDIT SCREEN ── */
+.edit-screen { position: absolute; inset: 0; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transform: translateX(22px); transition: opacity 0.2s, transform 0.22s; z-index: 10; background: var(--bg); }
+.edit-screen.open { opacity: 1; pointer-events: all; transform: translateX(0); }
+
+.edit-topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 11px 14px 9px; flex-shrink: 0; display: flex; align-items: center; gap: 11px; }
+.back-btn { background: none; border: 1.5px solid var(--border); border-radius: 5px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.6rem; padding: 5px 9px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.back-btn:active { border-color: var(--ink); color: var(--ink); }
+.edit-topbar-title { flex: 1; }
+.edit-topbar-title h2 { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 900; line-height: 1; }
+.edit-topbar-title h2 em { color: var(--accent); font-style: normal; }
+.edit-topbar-title .sub { font-size: 0.42rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 3px; }
+
+.edit-body { flex: 1; overflow-y: auto; padding: 0 13px 14px; }
+.edit-note { font-size: 0.46rem; color: var(--muted); padding: 8px 0 10px; line-height: 1.7; }
+
+/* Dynamic ingredient row in edit */
+.edit-ing-row {
+  display: flex; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--border); gap: 7px;
+  animation: slideIn 0.2s ease;
+}
+.edit-ing-row:last-of-type { border-bottom: none; }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.edit-ing-name-input {
+  flex: 1; min-width: 0;
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; font-family: 'DM Mono', monospace; font-size: 0.76rem;
+  color: var(--ink); outline: none; -webkit-appearance: none;
+  transition: border-color 0.15s;
+}
+.edit-ing-name-input:focus { border-color: var(--accent); }
+.edit-ing-name-input[readonly] { color: var(--muted); background: transparent; border-color: transparent; cursor: default; font-size: 0.8rem; font-weight: 500; }
+
+.edit-ing-val-input {
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; font-family: 'DM Mono', monospace; font-size: 0.86rem;
+  font-weight: 500; color: #d4a843; width: 72px; text-align: right;
+  outline: none; -webkit-appearance: none; transition: border-color 0.15s; flex-shrink: 0;
+}
+.edit-ing-val-input:focus { border-color: var(--accent); color: var(--ink); }
+.edit-ing-val-input[readonly] { color: var(--muted); }
+
+.edit-ing-unit-sel {
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 6px 4px; font-family: 'DM Mono', monospace; font-size: 0.7rem;
+  color: var(--muted); width: 46px; outline: none; -webkit-appearance: none;
+  cursor: pointer; flex-shrink: 0; text-align: center;
+}
+
+.del-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: none;
+  color: var(--muted); font-size: 1rem; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.15s; font-family: 'DM Mono', monospace;
+}
+.del-btn:active { background: #8b2020; border-color: #8b2020; color: white; transform: scale(0.88); }
+
+/* Add ingredient section */
+.add-ing-section {
+  margin-top: 8px; padding: 10px 0 4px;
+  border-top: 1px dashed var(--border);
+}
+.add-ing-label { font-size: 0.42rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.add-ing-row { display: flex; gap: 6px; align-items: center; }
+
+.add-name-input {
+  flex: 1; background: var(--card); border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 7px 9px; font-family: 'DM Mono', monospace; font-size: 0.78rem;
+  color: var(--ink); outline: none; -webkit-appearance: none; transition: border-color 0.15s;
+}
+.add-name-input:focus { border-color: var(--accent); }
+.add-name-input::placeholder { color: var(--muted); font-size: 0.72rem; }
+
+.add-val-input {
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 7px 8px; font-family: 'DM Mono', monospace; font-size: 0.84rem;
+  color: #d4a843; width: 68px; text-align: right; outline: none;
+  -webkit-appearance: none; transition: border-color 0.15s; flex-shrink: 0;
+}
+.add-val-input:focus { border-color: var(--accent); color: var(--ink); }
+.add-val-input::placeholder { color: var(--muted); font-size: 0.7rem; }
+
+.add-unit-sel {
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 7px 4px; font-family: 'DM Mono', monospace; font-size: 0.7rem;
+  color: var(--muted); width: 46px; outline: none; -webkit-appearance: none;
+  cursor: pointer; flex-shrink: 0; text-align: center;
+}
+
+.add-confirm-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: none; background: var(--accent); color: white;
+  font-size: 1.2rem; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.15s;
+}
+.add-confirm-btn:active { transform: scale(0.88); opacity: 0.85; }
+
+/* Edit footer */
+.edit-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 7px 13px; flex-shrink: 0; display: flex; gap: 7px; }
+.reset-btn-sm { flex: 1; background: none; border: 1.5px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.5rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 8px; cursor: pointer; transition: all 0.15s; }
+.reset-btn-sm:active { border-color: var(--accent); color: var(--accent); }
+.save-btn-sm { flex: 1.4; background: #3a8f6a; border: none; border-radius: 6px; color: white; font-family: 'DM Mono', monospace; font-size: 0.52rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 8px; cursor: pointer; transition: all 0.15s; }
+.save-btn-sm:active { opacity: 0.8; transform: scale(0.97); }
+
+/* Weight section (fish from pc) */
+.weight-section { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 13px 10px; flex-shrink: 0; }
+.weight-input-row { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+.weight-input-wrap { flex: 1; position: relative; display: flex; align-items: center; }
+.weight-input { width: 100%; background: var(--card); border: 2px solid var(--accent); border-radius: 8px; padding: 11px 46px 11px 13px; font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 500; color: var(--ink); outline: none; -webkit-appearance: none; transition: border-color 0.15s; text-align: right; }
+.weight-input:focus { border-color: #d4a843; }
+.weight-input::placeholder { font-size: 0.95rem; color: var(--muted); }
+.weight-unit-ov { position: absolute; right: 11px; font-size: 0.65rem; color: var(--muted); pointer-events: none; }
+.tare-row { display: flex; align-items: center; gap: 6px; }
+.tare-label { font-size: 0.42rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; }
+.tare-btn { background: var(--card); border: 1.5px solid var(--border); border-radius: 6px; padding: 5px 9px; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 500; color: var(--muted); transition: all 0.12s; white-space: nowrap; flex-shrink: 0; }
+.tare-btn:active { transform: scale(0.92); }
+.tare-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.tare-input-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.tare-input { background: var(--card); border: 1.5px solid var(--accent); border-radius: 6px; padding: 4px 7px; font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--ink); width: 60px; text-align: right; outline: none; -webkit-appearance: none; }
+.tare-unit-sm { font-size: 0.48rem; color: var(--muted); }
+.tare-display { margin-left: auto; font-size: 0.62rem; color: var(--accent); white-space: nowrap; flex-shrink: 0; }
+.info-banner { background: var(--surface); border-bottom: 1px solid var(--border); padding: 7px 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ib-label { font-size: 0.44rem; color: var(--muted); letter-spacing: 0.09em; text-transform: uppercase; }
+.ib-val { font-size: 0.62rem; font-weight: 500; color: var(--accent); }
+.pc-tag { background: #d4631f; color: white; font-size: 0.38rem; padding: 2px 5px; border-radius: 3px; letter-spacing: 0.05em; }
+.pc-ing .ing-dot { background: #d4631f; }
+.sub-tag { display: inline-block; font-size: 0.36rem; color: #d4631f; border: 1px solid #d4631f; border-radius: 2px; padding: 1px 3px; margin-left: 4px; letter-spacing: 0.05em; vertical-align: middle; opacity: 0.8; }
+
+/* Toast */
+.toast { position: fixed; bottom: 66px; left: 50%; transform: translateX(-50%) translateY(10px); background: #3a8f6a; color: white; font-family: 'DM Mono', monospace; font-size: 0.56rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 7px 16px; border-radius: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 300; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Confirm delete dialog */
+.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 400; display: none; align-items: flex-end; }
+.confirm-overlay.open { display: flex; }
+.confirm-sheet { background: var(--card); border-radius: 16px 16px 0 0; border-top: 2px solid var(--border); padding: 20px 20px 32px; width: 100%; max-width: 480px; margin: 0 auto; }
+.confirm-sheet h3 { font-family: 'Playfair Display', serif; font-size: 1rem; margin-bottom: 6px; }
+.confirm-sheet p { font-size: 0.6rem; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+.confirm-btns { display: flex; gap: 10px; }
+.confirm-cancel { flex: 1; background: none; border: 1.5px solid var(--border); border-radius: 8px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.6rem; text-transform: uppercase; padding: 10px; cursor: pointer; }
+.confirm-delete { flex: 1; background: #8b2020; border: none; border-radius: 8px; color: white; font-family: 'DM Mono', monospace; font-size: 0.6rem; text-transform: uppercase; padding: 10px; cursor: pointer; }
+
+@keyframes flash {
+  0%   { border-radius: 6px; }
+  100% { background: transparent; }
+}
+
+/* Tab themes */
+#tab-pc          { --accent:#d4631f; --bg:#1a1208; --surface:#231a0e; --card:#2c2015; --ink:#f0e8d8; --muted:#8a7a64; --border:#3a2d1e; background:var(--bg); }
+#tab-fish-pc     { --accent:#2a8fc4; --bg:#0d1a24; --surface:#0f2030; --card:#142535; --ink:#e8f4f8; --muted:#5a7a8a; --border:#1e3448; background:var(--bg); }
+#tab-fish-scratch{ --accent:#9b2335; --bg:#1a0a0d; --surface:#220d10; --card:#2d1015; --ink:#f5e8ea; --muted:#7a5560; --border:#3d1820; background:var(--bg); }
+#tab-lamb        { --accent:#5a8a3a; --bg:#0e1a0a; --surface:#122010; --card:#1a2e14; --ink:#e8f5e0; --muted:#607a50; --border:#253d1a; background:var(--bg); }
+#tab-chicken     { --accent:#b8860b; --bg:#1a1500; --surface:#221c00; --card:#2d2500; --ink:#f5f0d8; --muted:#7a6e40; --border:#3d3400; background:var(--bg); }
+#tab-garlic      { --accent:#7a5c9e; --bg:#120d1a; --surface:#1a1224; --card:#221830; --ink:#f0eaf8; --muted:#6a5880; --border:#2e2040; background:var(--bg); }
+
+#tab-pc .flash          { animation: flash 0.32s ease; background:rgba(212,99,31,0.15); }
+#tab-fish-pc .flash     { animation: flash 0.32s ease; background:rgba(42,143,196,0.15); }
+#tab-fish-scratch .flash{ animation: flash 0.32s ease; background:rgba(155,35,53,0.15); }
+#tab-lamb .flash        { animation: flash 0.32s ease; background:rgba(90,138,58,0.15); }
+#tab-chicken .flash     { animation: flash 0.32s ease; background:rgba(184,134,11,0.15); }
+#tab-garlic .flash      { animation: flash 0.32s ease; background:rgba(122,92,158,0.15); }
+
+/* scrollbars */
+.ingredients::-webkit-scrollbar, .edit-body::-webkit-scrollbar { width: 3px; }
+.ingredients::-webkit-scrollbar-track, .edit-body::-webkit-scrollbar-track { background: transparent; }
+.ingredients::-webkit-scrollbar-thumb, .edit-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="tab-content">
+
+  <!-- ══ TAB 1: POTATO CAKES ══ -->
+  <div class="tab-panel active" id="tab-pc">
+    <div id="pc-main" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+      <div class="topbar">
+        <div><h1>Potato <em>Cakes</em></h1><div class="sub">Batter recipe scaler</div></div>
+        <div class="topbar-right">
+          <button class="edit-btn" onclick="openEdit('pc')">✎ Edit</button>
+          <div class="water-badge" id="pc-badge">5<sub>L</sub></div>
+        </div>
+      </div>
+      <div class="selector-section">
+        <div class="sec-mini">Select water volume</div>
+        <div class="btn-row" id="pc-btnrow">
+          <button class="vol-btn" onclick="pcSelect(3)">3<span class="u">L</span></button>
+          <button class="vol-btn" onclick="pcSelect(4)">4<span class="u">L</span></button>
+          <button class="vol-btn active" onclick="pcSelect(5)">5<span class="u">L</span></button>
+          <button class="vol-btn" onclick="pcSelect(6)">6<span class="u">L</span></button>
+          <button class="vol-btn" onclick="pcSelect(7)">7<span class="u">L</span></button>
+          <button class="vol-btn" onclick="pcSelect(8)">8<span class="u">L</span></button>
+        </div>
+        <div class="custom-row">
+          <span class="custom-label">Custom</span>
+          <input class="custom-input" type="number" id="pc-custom" placeholder="litres" min="0.1" step="0.5" oninput="pcCustom(this.value)">
+          <span class="custom-unit">litres</span>
+        </div>
+      </div>
+      <div class="ingredients" id="pc-inglist"></div>
+      <div class="panel-footer">Base recipe per 1 litre of water</div>
+    </div>
+    <div class="edit-screen" id="pc-edit">
+      <div class="edit-topbar">
+        <button class="back-btn" onclick="closeEdit('pc')">← Back</button>
+        <div class="edit-topbar-title"><h2>Edit <em>PC</em> Recipe</h2><div class="sub">Per 1 litre of water</div></div>
+      </div>
+      <div class="edit-body" id="pc-editbody">
+        <div class="edit-note">Tap a name or value to edit. Use + to add ingredients, × to delete.</div>
+      </div>
+      <div class="edit-footer">
+        <button class="reset-btn-sm" onclick="resetRecipe('pc')">Reset Default</button>
+        <button class="save-btn-sm" onclick="saveRecipe('pc')">Save Recipe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 2: FISH FROM PC ══ -->
+  <div class="tab-panel" id="tab-fish-pc">
+    <div id="fp-main" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+      <div class="topbar">
+        <div><h1>Fish <em>Batter</em></h1><div class="sub">From leftover PC batter</div></div>
+        <div class="topbar-right">
+          <button class="edit-btn" onclick="openEdit('fp')">✎ Edit</button>
+        </div>
+      </div>
+      <div class="weight-section">
+        <div class="sec-mini">Batter + container total weight</div>
+        <div class="weight-input-row">
+          <div class="weight-input-wrap">
+            <input class="weight-input" type="number" id="fp-weight" placeholder="0" min="0" step="100" inputmode="numeric" enterkeyhint="done" oninput="fpWeightInput(this.value)" onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault();}">
+            <span class="weight-unit-ov">g</span>
+          </div>
+        </div>
+        <div class="tare-row">
+          <span class="tare-label">Container:</span>
+          <button class="tare-btn active" id="fp-tare-preset" onclick="fpTarePreset()">760 g</button>
+          <button class="tare-btn" id="fp-tare-custom-btn" onclick="fpTareCustom()">Custom</button>
+          <div class="tare-input-wrap" id="fp-tare-wrap" style="display:none">
+            <input class="tare-input" type="number" id="fp-tare-input" placeholder="g" min="0" step="10" oninput="fpTareCustomVal(this.value)">
+            <span class="tare-unit-sm">g</span>
+          </div>
+          <span class="tare-display" id="fp-tare-display">− 760 g</span>
+        </div>
+      </div>
+      <div class="info-banner">
+        <div><div class="ib-label">PC Batter (net)</div><div class="ib-val" id="fp-pc-display">— g</div></div>
+        <div style="text-align:right"><div class="ib-label">Total batter</div><div class="ib-val" id="fp-total-display">— g</div></div>
+      </div>
+      <div class="ingredients" id="fp-inglist"></div>
+      <div class="panel-footer">Recipe per 1 kg of PC batter · Enter weight to calculate</div>
+    </div>
+    <div class="edit-screen" id="fp-edit">
+      <div class="edit-topbar">
+        <button class="back-btn" onclick="closeEdit('fp')">← Back</button>
+        <div class="edit-topbar-title"><h2>Edit <em>Fish</em> Recipe</h2><div class="sub">Per 1 kg of PC batter</div></div>
+      </div>
+      <div class="edit-body" id="fp-editbody">
+        <div class="edit-note">Quantities to add per 1 kg of leftover PC batter.</div>
+      </div>
+      <div class="edit-footer">
+        <button class="reset-btn-sm" onclick="resetRecipe('fp')">Reset Default</button>
+        <button class="save-btn-sm" onclick="saveRecipe('fp')">Save Recipe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 3: FISH SCRATCH ══ -->
+  <div class="tab-panel" id="tab-fish-scratch">
+    <div id="fs-main" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+      <div class="topbar">
+        <div><h1>Fish <em>Scratch</em></h1><div class="sub">From scratch · water-based</div></div>
+        <div class="topbar-right">
+          <button class="edit-btn" onclick="openEdit('fs')">✎ Edit</button>
+          <div class="water-badge" id="fs-badge">3<sub>L</sub></div>
+        </div>
+      </div>
+      <div class="selector-section">
+        <div class="sec-mini">Select water volume</div>
+        <div class="btn-row">
+          <button class="vol-btn" onclick="fsSelect(2)">2<span class="u">L</span></button>
+          <button class="vol-btn active" onclick="fsSelect(3)">3<span class="u">L</span></button>
+          <button class="vol-btn" onclick="fsSelect(4)">4<span class="u">L</span></button>
+          <button class="vol-btn" onclick="fsSelect(5)">5<span class="u">L</span></button>
+          <button class="vol-btn" onclick="fsSelect(6)">6<span class="u">L</span></button>
+        </div>
+        <div class="custom-row">
+          <span class="custom-label">Custom</span>
+          <input class="custom-input" type="number" id="fs-custom" placeholder="litres" min="0.1" step="0.5" oninput="fsCustom(this.value)">
+          <span class="custom-unit">litres</span>
+        </div>
+      </div>
+      <div class="ingredients" id="fs-inglist"></div>
+      <div class="panel-footer">Per 1L water · Derived from PC batter composition + fish extras</div>
+    </div>
+    <div class="edit-screen" id="fs-edit">
+      <div class="edit-topbar">
+        <button class="back-btn" onclick="closeEdit('fs')">← Back</button>
+        <div class="edit-topbar-title"><h2>Edit <em>Scratch</em> Recipe</h2><div class="sub">Per 1 litre of water</div></div>
+      </div>
+      <div class="edit-body" id="fs-editbody">
+        <div class="edit-note">Adjust base quantities per 1 litre of water. Derived from PC batter composition.</div>
+      </div>
+      <div class="edit-footer">
+        <button class="reset-btn-sm" onclick="resetRecipe('fs')">Reset Default</button>
+        <button class="save-btn-sm" onclick="saveRecipe('fs')">Save Recipe</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══ TAB 4: LAMB MARINADE ══ -->
+  <div class="tab-panel" id="tab-lamb">
+    <div id="lm-main" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+      <div class="topbar">
+        <div><h1>Lamb <em>Marinade</em></h1><div class="sub">Marinated lamb recipe scaler</div></div>
+        <div class="topbar-right">
+          <button class="edit-btn" onclick="openEdit('lm')">✎ Edit</button>
+        </div>
+      </div>
+      <div class="weight-section">
+        <div class="sec-mini">Lamb weight (grams)</div>
+        <div class="weight-input-row">
+          <div class="weight-input-wrap">
+            <input class="weight-input" type="number" id="lm-weight" placeholder="0" min="0" step="100" inputmode="numeric" enterkeyhint="done" oninput="lmWeightInput(this.value)" onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault();}">
+            <span class="weight-unit-ov">g</span>
+          </div>
+        </div>
+      </div>
+      <div class="ingredients" id="lm-inglist"></div>
+      <div class="panel-footer">Base recipe for 4600 g of lamb · Enter weight to calculate</div>
+    </div>
+    <div class="edit-screen" id="lm-edit">
+      <div class="edit-topbar">
+        <button class="back-btn" onclick="closeEdit('lm')">← Back</button>
+        <div class="edit-topbar-title"><h2>Edit <em>Lamb</em> Recipe</h2><div class="sub">Per 4.6 kg of lamb</div></div>
+      </div>
+      <div class="edit-body" id="lm-editbody">
+        <div class="edit-note">Tap a name or value to edit. Use + to add ingredients, × to delete.</div>
+      </div>
+      <div class="edit-footer">
+        <button class="reset-btn-sm" onclick="resetRecipe('lm')">Reset Default</button>
+        <button class="save-btn-sm" onclick="saveRecipe('lm')">Save Recipe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 5: CHICKEN MARINADE ══ -->
+  <div class="tab-panel" id="tab-chicken">
+    <div id="ck-main" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+      <div class="topbar">
+        <div><h1>Chicken <em>Marinade</em></h1><div class="sub">Marinated chicken recipe scaler</div></div>
+        <div class="topbar-right">
+          <button class="edit-btn" onclick="openEdit('ck')">✎ Edit</button>
+        </div>
+      </div>
+      <div class="weight-section">
+        <div class="sec-mini">Chicken weight (grams)</div>
+        <div class="weight-input-row">
+          <div class="weight-input-wrap">
+            <input class="weight-input" type="number" id="ck-weight" placeholder="0" min="0" step="100" inputmode="numeric" enterkeyhint="done" oninput="ckWeightInput(this.value)" onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault();}">
+            <span class="weight-unit-ov">g</span>
+          </div>
+        </div>
+      </div>
+      <div class="ingredients" id="ck-inglist"></div>
+      <div class="panel-footer">Base recipe for 4600 g of chicken · Enter weight to calculate</div>
+    </div>
+    <div class="edit-screen" id="ck-edit">
+      <div class="edit-topbar">
+        <button class="back-btn" onclick="closeEdit('ck')">← Back</button>
+        <div class="edit-topbar-title"><h2>Edit <em>Chicken</em> Recipe</h2><div class="sub">Per 4.6 kg of chicken</div></div>
+      </div>
+      <div class="edit-body" id="ck-editbody">
+        <div class="edit-note">Tap a name or value to edit. Use + to add ingredients, × to delete.</div>
+      </div>
+      <div class="edit-footer">
+        <button class="reset-btn-sm" onclick="resetRecipe('ck')">Reset Default</button>
+        <button class="save-btn-sm" onclick="saveRecipe('ck')">Save Recipe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 6: GARLIC SAUCE ══ -->
+  <div class="tab-panel" id="tab-garlic">
+    <div id="gs-main" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+      <div class="topbar">
+        <div><h1>Garlic <em>Sauce</em></h1><div class="sub">Yoghurt garlic sauce scaler</div></div>
+        <div class="topbar-right">
+          <button class="edit-btn" onclick="openEdit('gs')">✎ Edit</button>
+        </div>
+      </div>
+      <div class="weight-section">
+        <div class="sec-mini">Yoghurt weight (grams)</div>
+        <div class="weight-input-row">
+          <div class="weight-input-wrap">
+            <input class="weight-input" type="number" id="gs-weight" placeholder="0" min="0" step="100" inputmode="numeric" enterkeyhint="done" oninput="gsWeightInput(this.value)" onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault();}">
+            <span class="weight-unit-ov">g</span>
+          </div>
+        </div>
+      </div>
+      <div class="ingredients" id="gs-inglist"></div>
+      <div class="panel-footer">Base recipe for 2514 g of yoghurt · Enter weight to calculate</div>
+    </div>
+    <div class="edit-screen" id="gs-edit">
+      <div class="edit-topbar">
+        <button class="back-btn" onclick="closeEdit('gs')">← Back</button>
+        <div class="edit-topbar-title"><h2>Edit <em>Garlic</em> Sauce</h2><div class="sub">Per 2514 g of yoghurt</div></div>
+      </div>
+      <div class="edit-body" id="gs-editbody">
+        <div class="edit-note">Tap a name or value to edit. Use + to add ingredients, × to delete.</div>
+      </div>
+      <div class="edit-footer">
+        <button class="reset-btn-sm" onclick="resetRecipe('gs')">Reset Default</button>
+        <button class="save-btn-sm" onclick="saveRecipe('gs')">Save Recipe</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM TAB BAR -->
+<div class="tab-bar">
+  <button class="tab-item active" id="ti-pc" onclick="switchTab('pc')">
+    <div class="tab-indicator"></div>
+    <div class="tab-icon">🥔</div>
+    <div class="tab-label">Potato<br>Cakes</div>
+  </button>
+  <button class="tab-item" id="ti-fish-pc" onclick="switchTab('fish-pc')">
+    <div class="tab-indicator"></div>
+    <div class="tab-icon">🐟</div>
+    <div class="tab-label">Fish<br>From PC</div>
+  </button>
+  <button class="tab-item" id="ti-fish-scratch" onclick="switchTab('fish-scratch')">
+    <div class="tab-indicator"></div>
+    <div class="tab-icon">🍟</div>
+    <div class="tab-label">Fish<br>Scratch</div>
+  </button>
+  <button class="tab-item" id="ti-lamb" onclick="switchTab('lamb')">
+    <div class="tab-indicator"></div>
+    <div class="tab-icon">🥩</div>
+    <div class="tab-label">Lamb<br>Marinade</div>
+  </button>
+  <button class="tab-item" id="ti-chicken" onclick="switchTab('chicken')">
+    <div class="tab-indicator"></div>
+    <div class="tab-icon">🍗</div>
+    <div class="tab-label">Chicken<br>Marinade</div>
+  </button>
+  <button class="tab-item" id="ti-garlic" onclick="switchTab('garlic')">
+    <div class="tab-indicator"></div>
+    <div class="tab-icon">🧄</div>
+    <div class="tab-label">Garlic<br>Sauce</div>
+  </button>
+</div>
+
+<div class="toast" id="toast">Saved ✓</div>
+
+<!-- Confirm delete sheet -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-sheet" style="--card:#2c2015;--border:#3a2d1e;--muted:#8a7a64;">
+    <h3 id="confirmTitle">Delete ingredient?</h3>
+    <p id="confirmMsg">This will remove the ingredient from the recipe.</p>
+    <div class="confirm-btns">
+      <button class="confirm-cancel" onclick="confirmCancel()">Cancel</button>
+      <button class="confirm-delete" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   RECIPE DATA
+════════════════════════════════════════ */
+// Each entry: { key, name, val, unit, locked }
+// locked = cannot be deleted (water base)
+
+const PC_DEFAULTS = [
+  { key:'water',       name:'Water',            val:1000, unit:'ml', locked:true  },
+  { key:'oil',         name:'Oil',              val:30,   unit:'g',  locked:false },
+  { key:'salt',        name:'Salt',             val:25,   unit:'g',  locked:false },
+  { key:'crispy',      name:'Crispy Batter',    val:5,    unit:'g',  locked:false },
+  { key:'selfraising', name:'Self Raising Flour',val:15,  unit:'g',  locked:false },
+  { key:'corn',        name:'Corn Flour',       val:100,  unit:'g',  locked:false },
+  { key:'biscuit',     name:'Biscuit Flour',    val:865,  unit:'g',  locked:false },
+];
+
+const FP_DEFAULTS = [
+  { key:'water',       name:'Water',            val:380,  unit:'g',  locked:false },
+  { key:'salt',        name:'Salt',             val:8,    unit:'g',  locked:false },
+  { key:'oil',         name:'Oil',              val:20,   unit:'g',  locked:false },
+  { key:'crispy',      name:'Crispy Batter',    val:2,    unit:'g',  locked:false },
+  { key:'selfraising', name:'Self Raising Flour',val:8,   unit:'g',  locked:false },
+  { key:'corn',        name:'Corn Flour',       val:100,  unit:'g',  locked:false },
+];
+
+const FS_DEFAULTS = [
+  { key:'water',       name:'Water',            val:1000, unit:'ml', locked:true  },
+  { key:'salt',        name:'Salt',             val:23.3, unit:'g',  locked:false },
+  { key:'oil',         name:'Oil',              val:39.9, unit:'g',  locked:false },
+  { key:'crispy',      name:'Crispy Batter',    val:5.1,  unit:'g',  locked:false },
+  { key:'selfraising', name:'Self Raising Flour',val:17.6,unit:'g',  locked:false },
+  { key:'corn',        name:'Corn Flour',       val:171.2,unit:'g',  locked:false },
+  { key:'biscuit',     name:'Biscuit Flour',    val:487.3,unit:'g',  locked:false },
+];
+
+const LM_DEFAULTS = [
+  { key:'lamb',       name:'Lamb',             val:4600, unit:'g',  locked:true  },
+  { key:'salt',       name:'Salt',             val:50,   unit:'g',  locked:false },
+  { key:'sugar',      name:'Sugar',            val:40,   unit:'g',  locked:false },
+  { key:'bbq',        name:'BBQ Provincial',   val:50,   unit:'g',  locked:false },
+  { key:'oregano',    name:'Oregano',          val:10,   unit:'g',  locked:false },
+  { key:'pepper',     name:'Black Pepper',     val:4,    unit:'g',  locked:false },
+  { key:'wine',       name:'Red Wine',         val:60,   unit:'g',  locked:false },
+  { key:'kiwi',       name:'Kiwi Fruit',       val:2,    unit:'pcs',locked:false },
+];
+
+const CK_DEFAULTS = [
+  { key:'chicken',    name:'Chicken',          val:4600, unit:'g',  locked:true  },
+  { key:'salt',       name:'Salt',             val:45,   unit:'g',  locked:false },
+  { key:'sugar',      name:'Sugar',            val:36,   unit:'g',  locked:false },
+  { key:'bbq',        name:'BBQ Provincial',   val:45,   unit:'g',  locked:false },
+  { key:'oregano',    name:'Oregano',          val:9,    unit:'g',  locked:false },
+  { key:'pepper',     name:'Black Pepper',     val:3.6,  unit:'g',  locked:false },
+  { key:'wine',       name:'White Wine',       val:54,   unit:'g',  locked:false },
+];
+
+const GS_DEFAULTS = [
+  { key:'yoghurt',    name:'Yoghurt',          val:2514, unit:'g',  locked:true  },
+  { key:'garlic',     name:'Garlic',           val:2,    unit:'bulbs', locked:false },
+  { key:'oregano',    name:'Oregano',          val:4,    unit:'g',  locked:false },
+  { key:'pepper',     name:'Black Pepper',     val:1,    unit:'g',  locked:false },
+  { key:'salt',       name:'Salt',             val:30,   unit:'g',  locked:false },
+  { key:'oliveoil',   name:'Olive Oil',        val:10,   unit:'g',  locked:false },
+];
+
+// Deep-clone working copies
+let pcRecipe = deepClone(PC_DEFAULTS);
+let fpRecipe = deepClone(FP_DEFAULTS);
+let fsRecipe = deepClone(FS_DEFAULTS);
+let lmRecipe = deepClone(LM_DEFAULTS);
+let ckRecipe = deepClone(CK_DEFAULTS);
+let gsRecipe = deepClone(GS_DEFAULTS);
+
+// Draft copies for edit screen (changes only apply on Save)
+let pcDraft = null;
+let fpDraft = null;
+let fsDraft = null;
+let lmDraft = null;
+let ckDraft = null;
+let gsDraft = null;
+
+function deepClone(arr) { return arr.map(o => ({...o})); }
+
+function getRecipe(tab) { return tab==='pc'?pcRecipe:tab==='fp'?fpRecipe:tab==='fs'?fsRecipe:tab==='lm'?lmRecipe:tab==='ck'?ckRecipe:gsRecipe; }
+function getDraft(tab)  { return tab==='pc'?pcDraft :tab==='fp'?fpDraft :tab==='fs'?fsDraft :tab==='lm'?lmDraft:tab==='ck'?ckDraft:gsDraft; }
+function setDraft(tab,d){ if(tab==='pc')pcDraft=d; else if(tab==='fp')fpDraft=d; else if(tab==='fs')fsDraft=d; else if(tab==='lm')lmDraft=d; else if(tab==='ck')ckDraft=d; else gsDraft=d; }
+function setRecipe(tab,r){ if(tab==='pc')pcRecipe=r; else if(tab==='fp')fpRecipe=r; else if(tab==='fs')fsRecipe=r; else if(tab==='lm')lmRecipe=r; else if(tab==='ck')ckRecipe=r; else gsRecipe=r; }
+
+/* ════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════ */
+function rnd(v) {
+  if (v >= 100) return Math.round(v);
+  if (v >= 10)  return Math.round(v * 10) / 10;
+  return Math.round(v * 100) / 100;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+function animAmt(el, row) {
+  el.classList.remove('changed'); void el.offsetWidth; el.classList.add('changed');
+  if (row) { row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash'); }
+  setTimeout(() => el.classList.remove('changed'), 400);
+}
+
+/* ════════════════════════════════════════
+   MAIN INGREDIENT LIST RENDER
+════════════════════════════════════════ */
+function renderIngList(tab) {
+  const recipe = getRecipe(tab);
+  const listId = tab + '-inglist';
+  const list = document.getElementById(listId);
+  if (!list) return;
+
+  // For fp tab: prepend PC batter row, then dynamic
+  let html = '';
+  if (tab === 'fp') {
+    html += `<div class="ing-header"><span>Ingredients to add</span><span class="pc-tag">+ PC BATTER</span></div>`;
+    html += `<div class="ing-row pc-ing" id="fp-row-pcbatter"><div class="ing-dot"></div><div class="ing-name">PC Batter <span class="sub-tag">LEFTOVER</span></div><div class="ing-amount zero" id="fp-amt-pcbatter">—</div><div class="ing-unit">g</div></div>`;
+  } else {
+    html += `<div class="ing-header">Ingredients</div>`;
+  }
+
+  recipe.forEach(item => {
+    const isWater = item.key === 'water';
+    const isLamb  = item.key === 'lamb' || item.key === 'chicken' || item.key === 'yoghurt';
+    let amt, zeroClass='';
+    if (tab === 'fp') {
+      amt = '—'; zeroClass = ' zero';
+    } else if (tab === 'lm' || tab === 'ck' || tab === 'gs') {
+      amt = '—'; zeroClass = ' zero'; // will be updated by lmUpdate/ckUpdate/gsUpdate()
+    } else {
+      let scale = tab==='pc'?pcL : fsL;
+      amt = rnd(item.val * scale);
+    }
+    html += `<div class="ing-row${isWater||isLamb?' water-ing':''}" id="${tab}-row-${item.key}">
+      <div class="ing-dot"></div>
+      <div class="ing-name">${item.name}</div>
+      <div class="ing-amount${zeroClass}" id="${tab}-amt-${item.key}">${amt}</div>
+      <div class="ing-unit">${item.unit}</div>
+    </div>`;
+  });
+
+  list.innerHTML = html;
+}
+
+/* ════════════════════════════════════════
+   EDIT SCREEN RENDER
+════════════════════════════════════════ */
+function renderEditBody(tab) {
+  const draft = getDraft(tab);
+  const bodyId = tab + '-editbody';
+  const body = document.getElementById(bodyId);
+  const noteHTML = body.querySelector('.edit-note').outerHTML;
+
+  let rows = '';
+  draft.forEach((item, idx) => {
+    const isLocked = item.locked;
+    rows += `<div class="edit-ing-row" id="edit-row-${tab}-${idx}">
+      <input class="edit-ing-name-input" type="text" value="${item.name}"
+        ${isLocked ? 'readonly' : ''}
+        onchange="draftSetName('${tab}',${idx},this.value)">
+      <input class="edit-ing-val-input" type="number" value="${item.val}" min="0" step="any"
+        ${isLocked ? 'readonly' : ''}
+        onchange="draftSetVal('${tab}',${idx},this.value)">
+      <select class="edit-ing-unit-sel" onchange="draftSetUnit('${tab}',${idx},this.value)" ${isLocked?'disabled':''}>
+        <option value="g"  ${item.unit==='g' ?'selected':''}>g</option>
+        <option value="ml" ${item.unit==='ml'?'selected':''}>ml</option>
+        <option value="kg"  ${item.unit==='kg' ?'selected':''}>kg</option>
+        <option value="pcs"${item.unit==='pcs'?'selected':''}>pcs</option>
+        <option value="bulbs"${item.unit==='bulbs'?'selected':''}>bulbs</option>
+      </select>
+      ${isLocked
+        ? `<div style="width:28px;flex-shrink:0"></div>`
+        : `<button class="del-btn" onclick="askDelete('${tab}',${idx})" title="Delete">×</button>`
+      }
+    </div>`;
+  });
+
+  // Add ingredient section
+  rows += `<div class="add-ing-section">
+    <div class="add-ing-label">+ Add Ingredient</div>
+    <div class="add-ing-row">
+      <input class="add-name-input" type="text" id="${tab}-add-name" placeholder="Name">
+      <input class="add-val-input" type="number" id="${tab}-add-val" placeholder="0" min="0" step="any">
+      <select class="add-unit-sel" id="${tab}-add-unit">
+        <option value="g">g</option>
+        <option value="ml">ml</option>
+        <option value="kg">kg</option>
+        <option value="pcs">pcs</option>
+        <option value="bulbs">bulbs</option>
+      </select>
+      <button class="add-confirm-btn" onclick="addIngredient('${tab}')" title="Add">+</button>
+    </div>
+  </div>`;
+
+  body.innerHTML = noteHTML + rows;
+}
+
+/* ════════════════════════════════════════
+   DRAFT MUTATIONS
+════════════════════════════════════════ */
+function draftSetName(tab, idx, val) { getDraft(tab)[idx].name = val.trim() || getDraft(tab)[idx].name; }
+function draftSetVal(tab, idx, val)  { const n=parseFloat(val); if(!isNaN(n)&&n>=0) getDraft(tab)[idx].val=n; }
+function draftSetUnit(tab, idx, val) { getDraft(tab)[idx].unit = val; }
+
+function addIngredient(tab) {
+  const nameEl = document.getElementById(tab+'-add-name');
+  const valEl  = document.getElementById(tab+'-add-val');
+  const unitEl = document.getElementById(tab+'-add-unit');
+  const name = nameEl.value.trim();
+  const val  = parseFloat(valEl.value);
+  const unit = unitEl.value;
+  if (!name) { nameEl.focus(); nameEl.style.borderColor='var(--accent)'; setTimeout(()=>nameEl.style.borderColor='',1200); return; }
+  if (isNaN(val)||val<0) { valEl.focus(); valEl.style.borderColor='var(--accent)'; setTimeout(()=>valEl.style.borderColor='',1200); return; }
+  // Generate unique key
+  const key = name.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now();
+  getDraft(tab).push({ key, name, val, unit, locked:false });
+  nameEl.value=''; valEl.value=''; unitEl.value='g';
+  renderEditBody(tab);
+  // Scroll to bottom
+  const body = document.getElementById(tab+'-editbody');
+  setTimeout(() => body.scrollTop = body.scrollHeight, 50);
+  showToast(name + ' added');
+}
+
+/* ════════════════════════════════════════
+   DELETE CONFIRM
+════════════════════════════════════════ */
+let pendingDelete = null;
+
+function askDelete(tab, idx) {
+  const item = getDraft(tab)[idx];
+  pendingDelete = { tab, idx };
+  document.getElementById('confirmTitle').textContent = `Delete "${item.name}"?`;
+  document.getElementById('confirmMsg').textContent   = `This will remove "${item.name}" from the recipe. You can add it back later.`;
+  // Match sheet color to tab
+  const sheet = document.querySelector('.confirm-sheet');
+  if(tab==='pc')      { sheet.style.cssText='--card:#2c2015;--border:#3a2d1e;--muted:#8a7a64;background:#2c2015'; }
+  else if(tab==='fp') { sheet.style.cssText='--card:#142535;--border:#1e3448;--muted:#5a7a8a;background:#142535'; }
+  else if(tab==='fs') { sheet.style.cssText='--card:#2d1015;--border:#3d1820;--muted:#7a5560;background:#2d1015'; }
+  else if(tab==='lm') { sheet.style.cssText='--card:#1a2e14;--border:#253d1a;--muted:#607a50;background:#1a2e14'; }
+  else if(tab==='ck') { sheet.style.cssText='--card:#2d2500;--border:#3d3400;--muted:#7a6e40;background:#2d2500'; }
+  else                { sheet.style.cssText='--card:#221830;--border:#2e2040;--muted:#6a5880;background:#221830'; }
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+function confirmCancel() { pendingDelete=null; document.getElementById('confirmOverlay').classList.remove('open'); }
+function confirmDelete() {
+  if (!pendingDelete) return;
+  const { tab, idx } = pendingDelete;
+  const name = getDraft(tab)[idx].name;
+  getDraft(tab).splice(idx, 1);
+  renderEditBody(tab);
+  document.getElementById('confirmOverlay').classList.remove('open');
+  pendingDelete = null;
+  showToast(name + ' removed');
+}
+
+/* ════════════════════════════════════════
+   EDIT OPEN / CLOSE / SAVE / RESET
+════════════════════════════════════════ */
+function openEdit(tab) {
+  setDraft(tab, deepClone(getRecipe(tab)));
+  renderEditBody(tab);
+  document.getElementById(tab+'-edit').classList.add('open');
+}
+function closeEdit(tab) {
+  document.getElementById(tab+'-edit').classList.remove('open');
+}
+function saveRecipe(tab) {
+  const draft = getDraft(tab);
+  setRecipe(tab, deepClone(draft));
+  renderIngList(tab);
+  if (tab==='pc') pcUpdate();
+  else if (tab==='fp') fpUpdate();
+  else if (tab==='fs') fsUpdate();
+  else if (tab==='lm') lmUpdate();
+  else if (tab==='ck') ckUpdate();
+  else gsUpdate();
+  closeEdit(tab);
+  showToast('Recipe Saved ✓');
+}
+function resetRecipe(tab) {
+  const defaults = tab==='pc'?PC_DEFAULTS:tab==='fp'?FP_DEFAULTS:tab==='fs'?FS_DEFAULTS:tab==='lm'?LM_DEFAULTS:tab==='ck'?CK_DEFAULTS:GS_DEFAULTS;
+  setDraft(tab, deepClone(defaults));
+  renderEditBody(tab);
+  showToast('Reset to Default');
+}
+
+/* ════════════════════════════════════════
+   TAB SWITCHING
+════════════════════════════════════════ */
+let currentTab = 'pc';
+function switchTab(id) {
+  if (id === currentTab) return;
+  document.getElementById('tab-' + currentTab).classList.remove('active');
+  document.getElementById('tab-' + currentTab).classList.add('exit-left');
+  document.getElementById('ti-' + currentTab).classList.remove('active');
+  setTimeout(() => document.getElementById('tab-' + currentTab).classList.remove('exit-left'), 250);
+  currentTab = id;
+  const np = document.getElementById('tab-' + id);
+  np.style.transform = 'translateX(20px)';
+  np.classList.add('active');
+  document.getElementById('ti-' + id).classList.add('active');
+  requestAnimationFrame(() => { np.style.transform = ''; });
+}
+
+/* ════════════════════════════════════════
+   TAB 1 — POTATO CAKES
+════════════════════════════════════════ */
+let pcL = 5;
+
+function pcUpdate() {
+  const b = document.getElementById('pc-badge');
+  b.innerHTML = (pcL%1===0?pcL:pcL.toFixed(1))+'<sub>L</sub>';
+  pcRecipe.forEach(item => {
+    const val = rnd(item.val * pcL);
+    const el = document.getElementById('pc-amt-'+item.key);
+    if (!el) return;
+    if (String(el.textContent) !== String(val)) {
+      el.textContent = val;
+      animAmt(el, el.closest('.ing-row'));
+    }
+  });
+}
+function pcSelect(l) {
+  pcL = l;
+  document.querySelectorAll('#tab-pc .vol-btn').forEach((b,i)=>b.classList.toggle('active',[3,4,5,6,7,8][i]===l));
+  document.getElementById('pc-custom').value='';
+  pcUpdate();
+}
+function pcCustom(v) {
+  const n=parseFloat(v); if(!n||n<=0)return;
+  pcL=n; document.querySelectorAll('#tab-pc .vol-btn').forEach(b=>b.classList.remove('active'));
+  pcUpdate();
+}
+
+/* ════════════════════════════════════════
+   TAB 2 — FISH FROM PC
+════════════════════════════════════════ */
+let fpWeightG = 0, fpTareG = 760;
+
+function fpUpdate() {
+  const kg = fpWeightG / 1000;
+  const pcEl   = document.getElementById('fp-amt-pcbatter');
+  const pcDisp = document.getElementById('fp-pc-display');
+  if (fpWeightG > 0) {
+    pcEl.textContent=fpWeightG; pcEl.classList.remove('zero');
+    pcDisp.textContent=fpWeightG+' g';
+  } else {
+    pcEl.textContent='—'; pcEl.classList.add('zero');
+    pcDisp.textContent='— g';
+  }
+  let total = fpWeightG;
+  fpRecipe.forEach(item => {
+    const val = fpWeightG>0 ? rnd(item.val*kg) : null;
+    const el  = document.getElementById('fp-amt-'+item.key);
+    if (!el) return;
+    const txt = val!==null?String(val):'—';
+    if (el.textContent!==txt) {
+      el.textContent=txt;
+      el.classList.toggle('zero', val===null);
+      if (val!==null) animAmt(el, el.closest('.ing-row'));
+    }
+    if (val!==null) total+=val;
+  });
+  document.getElementById('fp-total-display').textContent = fpWeightG>0?Math.round(total)+' g':'— g';
+}
+function fpNet(raw){ return Math.max(0,raw-fpTareG); }
+function fpWeightInput(v){ const n=parseFloat(v); fpWeightG=(!isNaN(n)&&n>0)?fpNet(n):0; fpUpdate(); }
+function fpTarePreset(){
+  fpTareG=760;
+  document.getElementById('fp-tare-preset').classList.add('active');
+  document.getElementById('fp-tare-custom-btn').classList.remove('active');
+  document.getElementById('fp-tare-wrap').style.display='none';
+  document.getElementById('fp-tare-display').textContent='− 760 g';
+  const raw=parseFloat(document.getElementById('fp-weight').value)||0;
+  fpWeightG=fpNet(raw); fpUpdate();
+}
+function fpTareCustom(){
+  document.getElementById('fp-tare-preset').classList.remove('active');
+  document.getElementById('fp-tare-custom-btn').classList.add('active');
+  document.getElementById('fp-tare-wrap').style.display='flex';
+  document.getElementById('fp-tare-input').focus();
+}
+function fpTareCustomVal(v){
+  const n=parseFloat(v); fpTareG=(!isNaN(n)&&n>=0)?n:0;
+  document.getElementById('fp-tare-display').textContent='− '+fpTareG+' g';
+  const raw=parseFloat(document.getElementById('fp-weight').value)||0;
+  fpWeightG=fpNet(raw); fpUpdate();
+}
+
+/* ════════════════════════════════════════
+   TAB 3 — FISH SCRATCH
+════════════════════════════════════════ */
+let fsL = 3;
+
+function fsUpdate() {
+  const b = document.getElementById('fs-badge');
+  b.innerHTML = (fsL%1===0?fsL:fsL.toFixed(1))+'<sub>L</sub>';
+  fsRecipe.forEach(item => {
+    const val = rnd(item.val * fsL);
+    const el  = document.getElementById('fs-amt-'+item.key);
+    if (!el) return;
+    if (String(el.textContent)!==String(val)) {
+      el.textContent=val;
+      animAmt(el, el.closest('.ing-row'));
+    }
+  });
+}
+function fsSelect(l){
+  fsL=l;
+  document.querySelectorAll('#tab-fish-scratch .vol-btn').forEach((b,i)=>b.classList.toggle('active',[2,3,4,5,6][i]===l));
+  document.getElementById('fs-custom').value='';
+  fsUpdate();
+}
+function fsCustom(v){
+  const n=parseFloat(v); if(!n||n<=0)return;
+  fsL=n; document.querySelectorAll('#tab-fish-scratch .vol-btn').forEach(b=>b.classList.remove('active'));
+  fsUpdate();
+}
+
+/* ════════════════════════════════════════
+   TAB 4 — LAMB MARINADE
+════════════════════════════════════════ */
+let lmKg = 0; // actual lamb weight in kg
+
+function lmUpdate() {
+  lmRecipe.forEach(item => {
+    const mult = lmKg / 4.6;
+    const val = lmKg > 0 ? rnd(item.val * mult) : null;
+    const el  = document.getElementById('lm-amt-'+item.key);
+    if (!el) return;
+    const txt = val !== null ? String(val) : '—';
+    if (el.textContent !== txt) {
+      el.textContent = txt;
+      el.classList.toggle('zero', val === null);
+      if (val !== null) animAmt(el, el.closest('.ing-row'));
+    }
+  });
+}
+function lmWeightInput(v) {
+  const n = parseFloat(v);
+  lmKg = (!isNaN(n) && n > 0) ? n / 1000 : 0;
+  lmUpdate();
+}
+
+/* ════════════════════════════════════════
+   TAB 5 — CHICKEN MARINADE
+════════════════════════════════════════ */
+let ckKg = 0;
+
+function ckUpdate() {
+  ckRecipe.forEach(item => {
+    const mult = ckKg / 4.6;
+    const val = ckKg > 0 ? rnd(item.val * mult) : null;
+    const el  = document.getElementById('ck-amt-'+item.key);
+    if (!el) return;
+    const txt = val !== null ? String(val) : '—';
+    if (el.textContent !== txt) {
+      el.textContent = txt;
+      el.classList.toggle('zero', val === null);
+      if (val !== null) animAmt(el, el.closest('.ing-row'));
+    }
+  });
+}
+function ckWeightInput(v) {
+  const n = parseFloat(v);
+  ckKg = (!isNaN(n) && n > 0) ? n / 1000 : 0;
+  ckUpdate();
+}
+
+/* ════════════════════════════════════════
+   TAB 6 — GARLIC SAUCE
+════════════════════════════════════════ */
+let gsKg = 0;
+
+function gsUpdate() {
+  gsRecipe.forEach(item => {
+    const mult = gsKg / 2.514;
+    const val = gsKg > 0 ? rnd(item.val * mult) : null;
+    const el  = document.getElementById('gs-amt-'+item.key);
+    if (!el) return;
+    const txt = val !== null ? String(val) : '—';
+    if (el.textContent !== txt) {
+      el.textContent = txt;
+      el.classList.toggle('zero', val === null);
+      if (val !== null) animAmt(el, el.closest('.ing-row'));
+    }
+  });
+}
+function gsWeightInput(v) {
+  const n = parseFloat(v);
+  gsKg = (!isNaN(n) && n > 0) ? n / 1000 : 0;
+  gsUpdate();
+}
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+renderIngList('pc');
+renderIngList('fp');
+renderIngList('fs');
+renderIngList('lm');
+renderIngList('ck');
+renderIngList('gs');
+pcUpdate();
+fpUpdate();
+fsUpdate();
+lmUpdate();
+ckUpdate();
+gsUpdate();
+</script>
+</body>
+</html>
